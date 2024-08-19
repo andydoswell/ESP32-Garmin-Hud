@@ -14,10 +14,10 @@
 BluetoothSerial SerialBT;
 
 String MACadd = "AA:BB:CC:11:22:33";
-uint8_t address[6]  = {0xAA, 0xBB, 0xCC, 0x11, 0x22, 0x33};
+uint8_t address[6] = { 0xAA, 0xBB, 0xCC, 0x11, 0x22, 0x33 };
 //uint8_t address[6]  = {0x00, 0x1D, 0xA5, 0x02, 0xC3, 0x22};
 String name = "GARMIN HUD+";
-char *pin = "1234"; //<- standard pin would be provided by default
+char* pin = "1234";  //<- standard pin would be provided by default
 bool connected;
 bool lastStraight = true;
 typedef enum {
@@ -58,33 +58,32 @@ void setup() {
   setupGPS();
   SerialBT.begin("ESP32GarminCTRL", true);
   Serial.println("The device started in master mode, make sure Garmin HUD device is on!");
-  SerialBT.register_callback(callback); // used to detect dropped BT connection
-  connected = SerialBT.connect(name); // connect
+  SerialBT.register_callback(callback);  // used to detect dropped BT connection
+  connected = SerialBT.connect(name);    // connect
   if (connected) {
     Serial.println("Connected Succesfully!");
-    delay (2500); // wait for OK to finish animation
-    SetAutoBrightness();// set HUD brihtness
-    ClearTime(); // clear display
+    delay(2500);          // wait for OK to finish animation
+    SetAutoBrightness();  // set HUD brihtness
+    ClearTime();          // clear display
     ClearDistance();
     SetDirection(Straight, ArrowOnly, AsDirection);
   } else {
     while (!SerialBT.connected(10000)) {
       Serial.println("Failed to connect. ");
-      ESP.restart(); // I feel dirty
+      ESP.restart();  // I feel dirty
     }
   }
 }
 
-void loop()
-{
-  while (SerialGPS.available() > 0) // get and decode the gps data
+void loop() {
+  while (SerialGPS.available() > 0)  // get and decode the gps data
     gps.encode(SerialGPS.read());
 
-  if  (gps.time.isUpdated()) // set the clock, adjusting for BST
+  if (gps.time.isUpdated())  // set the clock, adjusting for BST
   {
     int Hour = (gps.time.hour());
     if (isBST()) {
-      Hour ++;
+      Hour++;
       if (Hour == 24) {
         Hour = 0;
       }
@@ -92,44 +91,34 @@ void loop()
     SetTime(Hour, gps.time.minute(), 0, 0, 1, 0);
   }
 
-  else if (gps.speed.isUpdated())
-  {
+  else if (gps.speed.isUpdated()) {
     if (gps.speed.mph() > 0) {
-      SetDistance (gps.speed.mph(), Miles, 0, 0);
+      SetDistance(gps.speed.mph(), Miles, 0, 0);
+    } else {
+      SetDistance(0, Miles, 0, 0);
     }
-    else {
-      SetDistance (0, Miles, 0, 0);
-    }
-  }
-  else if (gps.course.isUpdated())
-  {
+  } else if (gps.course.isUpdated()) {
     displayCompass(gps.course.deg());
-  }
-  else if (gps.satellites.isUpdated())
-  {
+  } else if (gps.satellites.isUpdated()) {
     if (gps.satellites.value() >= 4) {
       SetSpeedWarning(gps.satellites.value(), 0, 0, 0);
-    }
-    else {
+    } else {
       SetSpeedWarning(gps.satellites.value(), 1, 0, 0);
     }
   }
 }
 
-void SetTime(int nH, int nM, bool bFlag, bool bTraffic, bool bColon, bool bH)
-{
-  char arr[] = {(char) 0x05,
-                bTraffic ? (char) 0xff : (char) 0x00,
-                Digit(nH / 10), Digit(nH), bColon ? (char) 0xff : (char) 0x00,
-                Digit(nM / 10), Digit(nM), bH ? (char) 0xff : (char) 0x00,
-                bFlag ? (char) 0xff : (char) 0x00
-               };
+void SetTime(int nH, int nM, bool bFlag, bool bTraffic, bool bColon, bool bH) {
+  char arr[] = { (char)0x05,
+                 bTraffic ? (char)0xff : (char)0x00,
+                 Digit(nH / 10), Digit(nH), bColon ? (char)0xff : (char)0x00,
+                 Digit(nM / 10), Digit(nM), bH ? (char)0xff : (char)0x00,
+                 bFlag ? (char)0xff : (char)0x00 };
 
   SendHud(arr, sizeof(arr));
 }
 
-void SendHud(char* pBuf, int nLen)
-{
+void SendHud(char* pBuf, int nLen) {
   char sendBuf[255], len = 0;
   unsigned int nCrc = 0xeb + nLen + nLen;
 
@@ -144,11 +133,10 @@ void SendHud(char* pBuf, int nLen)
   sendBuf[len++] = 0x00;
   sendBuf[len++] = 0x55;
   sendBuf[len++] = 0x15;
-  for (int i = 0; i < nLen; i++)
-  {
+  for (int i = 0; i < nLen; i++) {
     nCrc += pBuf[i];
     sendBuf[len++] = pBuf[i];
-    if (pBuf[i] == 0x10) //Escape LF
+    if (pBuf[i] == 0x10)  //Escape LF
       sendBuf[len++] = 0x10;
   }
 
@@ -159,15 +147,14 @@ void SendHud(char* pBuf, int nLen)
   SendPacket(sendBuf, len);
 }
 
-void SetSpeedWarning(int nLimit, bool bSpeeding, bool bIcon, bool bSlash)
-{
+void SetSpeedWarning(int nLimit, bool bSpeeding, bool bIcon, bool bSlash) {
   char arr[] = {
     (char)0x06,
     (char)0,
     (char)0,
     (char)0,
     (char)(bSlash ? 0xff : 0x00),
-    (char) ((nLimit / 100) % 10),
+    (char)((nLimit / 100) % 10),
     Digit(nLimit / 10),
     Digit(nLimit),
     (char)(bSpeeding ? 0xff : 0x00),
@@ -176,16 +163,14 @@ void SetSpeedWarning(int nLimit, bool bSpeeding, bool bIcon, bool bSlash)
   SendHud(arr, sizeof(arr));
 }
 
-char Digit(int n)
-{
+char Digit(int n) {
   n = n % 10;
   if (n == 0)
     return (char)10;
   return (char)n;
 }
 
-int SendPacket(const char* pBuf, int nLen)
-{
+int SendPacket(const char* pBuf, int nLen) {
   //Serial.println (nLen);
   size_t size = 0;
   // size = Serial.write(pBuf, nLen);
@@ -198,22 +183,20 @@ int SendPacket(const char* pBuf, int nLen)
   return size;
 }
 
-void callback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) //Filthy dirty way to reset the connection in the event of the BT connection dropping.
+void callback(esp_spp_cb_event_t event, esp_spp_cb_param_t* param)  //Filthy dirty way to reset the connection in the event of the BT connection dropping.
 {
-  if (event == ESP_SPP_CLOSE_EVT ) {
+  if (event == ESP_SPP_CLOSE_EVT) {
     Serial.println("Client disconnected");
     ESP.restart();
   }
 }
 
-void SetAutoBrightness()
-{
+void SetAutoBrightness() {
   char command_auto_brightness[] = { 0x10, 0x7B, 0x0E, 0x08, 0x00, 0x00, 0x00, 0x56, 0x15, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x10, 0x03 };
   SendPacket(command_auto_brightness, sizeof(command_auto_brightness));
 }
 
-void SetSpeed(int nSpeed, bool bSpeeding, bool bIcon, bool bSlash)
-{
+void SetSpeed(int nSpeed, bool bSpeeding, bool bIcon, bool bSlash) {
   char arr[] = {
     (char)0x06,
 
@@ -221,9 +204,9 @@ void SetSpeed(int nSpeed, bool bSpeeding, bool bIcon, bool bSlash)
     Digit(nSpeed / 10),
     Digit(nSpeed),
     (char)(bSlash ? 0xff : 0x00),
-    (char) 0,
-    (char) 0,
-    (char) 0,
+    (char)0,
+    (char)0,
+    (char)0,
 
     (char)(bSpeeding ? 0xff : 0x00),
     (char)(bIcon ? 0xff : 0x00)
@@ -232,58 +215,51 @@ void SetSpeed(int nSpeed, bool bSpeeding, bool bIcon, bool bSlash)
 }
 
 
-void SetDirection(eOutAngle nDir, eOutType nType, eOutAngle nRoundaboutOut )
-{
+void SetDirection(eOutAngle nDir, eOutType nType, eOutAngle nRoundaboutOut) {
   char arr[] = {
-    (char) 0x01,
-    (char) ((nDir == LeftDown) ? 0x10 : ((nDir == RightDown) ? 0x20 : nType)),
+    (char)0x01,
+    (char)((nDir == LeftDown) ? 0x10 : ((nDir == RightDown) ? 0x20 : nType)),
     (char)((nType == RightRoundabout || nType == LeftRoundabout) ? ((nRoundaboutOut == AsDirection) ? nDir : nRoundaboutOut) : 0x00),
     (char)((nDir == LeftDown || nDir == RightDown) ? 0x00 : nDir)
   };
   SendHud(arr, sizeof(arr));
 }
 
-void SetLanes(char nArrow, char nOutline)
-{
+void SetLanes(char nArrow, char nOutline) {
   char arr[] = { (char)0x02, nOutline, nArrow };
   SendHud(arr, sizeof(arr));
 }
 
-void ClearTime()
-{
-  char arr[] = {( char) 0x05,
-                0x00 ,
-                0, 0 ,
-                0x00 ,
-                0, 0 ,
-                0x00 ,
-                // 0x00
-               };
+void ClearTime() {
+  char arr[] = {
+    (char)0x05,
+    0x00,
+    0, 0,
+    0x00,
+    0, 0,
+    0x00,
+    // 0x00
+  };
   SendHud(arr, sizeof(arr));
 }
 
-void SetDistance(int nDist, eUnits unit , bool bDecimal, bool bLeadingZero)
-{
+void SetDistance(int nDist, eUnits unit, bool bDecimal, bool bLeadingZero) {
   char arr[] = {
-    ( char) 0x03,
+    (char)0x03,
     Digit(nDist / 1000),
     Digit(nDist / 100),
     Digit(nDist / 10),
-    ( char)(bDecimal ? 0xff : 0x00),
+    (char)(bDecimal ? 0xff : 0x00),
     Digit(nDist),
-    ( char)unit
+    (char)unit
   };
 
-  if (!bLeadingZero)
-  {
-    if (arr[1] == 0xa)
-    {
+  if (!bLeadingZero) {
+    if (arr[1] == 0xa) {
       arr[1] = 0;
-      if (arr[2] == 0xa)
-      {
+      if (arr[2] == 0xa) {
         arr[2] = 0;
-        if (arr[3] == 0xa)
-        {
+        if (arr[3] == 0xa) {
           arr[3] = 0;
         }
       }
@@ -294,20 +270,20 @@ void SetDistance(int nDist, eUnits unit , bool bDecimal, bool bLeadingZero)
 
 void ClearDistance() {
   char arr[] = {
-    ( char) 0x03,
+    (char)0x03,
     0,
     0,
     0,
     0x00,
     0,
-    ( char)None
+    (char)None
   };
   SendHud(arr, sizeof(arr));
 }
 
-void setupGPS ()
-{
+void setupGPS() {
   SerialGPS.begin(9600, SERIAL_8N1, 16, 17);
+
   // send update u-blox rate to 200mS
   SerialGPS.write(0xB5);
   SerialGPS.write(0x62);
@@ -331,7 +307,7 @@ void setupGPS ()
   SerialGPS.write(0x00);
   SerialGPS.write(0x0E);
   SerialGPS.write(0x30);
-  delay (100);
+  delay(100);
   SerialGPS.flush();
   // set 57,600 baud on u-blox
   SerialGPS.write(0xB5);
@@ -371,15 +347,15 @@ void setupGPS ()
   SerialGPS.write(0x01);
   SerialGPS.write(0x08);
   SerialGPS.write(0x22);
-  delay (100);
-  SerialGPS.end();// stop SerialGPS coms at 9,600 baud
-  delay (100);
-  SerialGPS.begin (57600); // start SerialGPS coms at 57,600 baud.
+  delay(100);
+  SerialGPS.end();  // stop SerialGPS coms at 9,600 baud
+  delay(100);
+  SerialGPS.begin(57600, SERIAL_8N1, 16, 17);  // start SerialGPS coms at 57,600 baud.
+  
 }
 
-void displayCompass (float compass)
-{
-  if (gps.speed.mph() > 3) { // only update compass if we're moving (stops it flickering about if we're stationary)
+void displayCompass(float compass) {
+  if (gps.speed.mph() > 3) {  // only update compass if we're moving (stops it flickering about if we're stationary)
     if ((compass > 337.5) || (compass <= 22.5)) {
       SetDirection(Straight, ArrowOnly, AsDirection);
     }
@@ -415,7 +391,7 @@ void displayCompass (float compass)
   }
 }
 
-boolean isBST() // this bit of code blatantly plagarised from http://my-small-projects.blogspot.com/2015/05/arduino-checking-for-british-summer-time.html
+boolean isBST()  // this bit of code blatantly plagarised from http://my-small-projects.blogspot.com/2015/05/arduino-checking-for-british-summer-time.html
 {
   int imonth = gps.date.month();
   int iday = gps.date.day();
@@ -430,14 +406,14 @@ boolean isBST() // this bit of code blatantly plagarised from http://my-small-pr
   }
   // find last sun in mar and oct - quickest way I've found to do it
   // last sunday of march
-  int lastMarSunday =  (31 - (5 * gps.date.year() / 4 + 4) % 7);
+  int lastMarSunday = (31 - (5 * gps.date.year() / 4 + 4) % 7);
   //last sunday of october
   int lastOctSunday = (31 - (5 * gps.date.year() / 4 + 1) % 7);
   //In march, we are BST if is the last sunday in the month
   if (imonth == 3) {
-    if ( iday > lastMarSunday)
+    if (iday > lastMarSunday)
       return true;
-    if ( iday < lastMarSunday)
+    if (iday < lastMarSunday)
       return false;
     if (hr < 1)
       return false;
@@ -446,9 +422,9 @@ boolean isBST() // this bit of code blatantly plagarised from http://my-small-pr
   //In October we must be before the last sunday to be bst.
   //That means the previous sunday must be before the 1st.
   if (imonth == 10) {
-    if ( iday < lastOctSunday)
+    if (iday < lastOctSunday)
       return true;
-    if ( iday > lastOctSunday)
+    if (iday > lastOctSunday)
       return false;
     if (hr >= 1)
       return false;
